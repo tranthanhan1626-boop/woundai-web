@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import axios from "axios"
 
-const API = "https://woundai-backend-1-cr3w.onrender.com"
+const API = "https://woundai-backend-wf1b.onrender.com"
 
 const WOUND_TYPES = [
   { value: "vet_mo",          label: "Vết mổ" },
