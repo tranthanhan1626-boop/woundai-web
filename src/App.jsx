@@ -37,6 +37,8 @@ export default function App() {
   const [healNote,     setHealNote]     = useState("")
   const [healLoading,  setHealLoading]  = useState(false)
   const [healResult,   setHealResult]   = useState(null)
+  const [historyTab,   setHistoryTab]   = useState(false)
+  const [wounds,       setWounds]       = useState([])
 
   // Load retrain status khi vào app
   useEffect(() => {
@@ -46,6 +48,15 @@ export default function App() {
   }, [])
 
   function set(field, value) { setForm(f => ({ ...f, [field]: value })) }
+  async function loadWounds() {
+  setHistoryTab(true)
+  try {
+    const res = await axios.get(`${API}/wounds`)
+    setWounds(res.data.wounds)
+  } catch (e) {
+    setWounds([])
+  }
+}
 
   async function handleSubmit() {
     if (!form.patient_name.trim()) { setError("Vui lòng nhập tên bệnh nhân"); return }
@@ -154,16 +165,57 @@ export default function App() {
         {/* Tabs */}
         <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
           {["form","result"].map(t => (
-            <button key={t} onClick={() => t === "result" && result ? setTab(t) : setTab("form")}
-              style={{ padding: "7px 18px", borderRadius: 20, fontSize: 13, fontWeight: 500, cursor: "pointer",
-                border: "0.5px solid " + (tab === t ? "#1D9E75" : "#ddd"),
-                background: tab === t ? "#1D9E75" : "#fff",
-                color: tab === t ? "#fff" : "#666" }}>
-              {t === "form" ? "Nhập ca" : "Kết quả dự báo"}
-            </button>
-          ))}
+  <button key={t} onClick={() => { setHistoryTab(false); t === "result" && result ? setTab(t) : setTab("form") }}
+    style={{ padding: "7px 18px", borderRadius: 20, fontSize: 13, fontWeight: 500, cursor: "pointer",
+      border: "0.5px solid " + (!historyTab && tab === t ? "#1D9E75" : "#ddd"),
+      background: !historyTab && tab === t ? "#1D9E75" : "#fff",
+      color: !historyTab && tab === t ? "#fff" : "#666" }}>
+    {t === "form" ? "Nhập ca" : "Kết quả dự báo"}
+  </button>
+))}
+<button onClick={loadWounds}
+  style={{ padding: "7px 18px", borderRadius: 20, fontSize: 13, fontWeight: 500, cursor: "pointer",
+    border: "0.5px solid " + (historyTab ? "#1D9E75" : "#ddd"),
+    background: historyTab ? "#1D9E75" : "#fff",
+    color: historyTab ? "#fff" : "#666" }}>
+  Lịch sử
+</button>
+            
         </div>
-
+{/* — LỊCH SỬ — */}
+{historyTab && (
+  <div>
+    {wounds.length === 0 ? (
+      <div style={{ textAlign: "center", padding: 40, color: "#888", fontSize: 14 }}>
+        Chưa có dữ liệu vết thương
+      </div>
+    ) : wounds.map(w => (
+      <div key={w.id} style={{ background: "#fff", borderRadius: 14, border: "0.5px solid " + (w.status === "healed" ? "#1D9E75" : "#E5E3DC"), padding: 16, marginBottom: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>{w.patient_name}</div>
+            <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{w.wound_type} · {w.location}</div>
+          </div>
+          {w.status === "healed" ? (
+            <span style={{ fontSize: 12, background: "#E1F5EE", color: "#085041", padding: "3px 10px", borderRadius: 10 }}>✓ Đã lành</span>
+          ) : (
+            <span style={{ fontSize: 12, background: "#FAEEDA", color: "#633806", padding: "3px 10px", borderRadius: 10 }}>Đang điều trị</span>
+          )}
+        </div>
+        <div style={{ marginTop: 10, fontSize: 13, color: "#555" }}>
+          <span>Ngày bắt đầu: {w.created_date}</span>
+          {w.status === "healed" ? (
+            <div style={{ marginTop: 6, background: "#E1F5EE", borderRadius: 8, padding: "6px 12px", fontSize: 13, color: "#085041", fontWeight: 500 }}>
+              🎉 Lành sau {w.actual_days} ngày điều trị
+            </div>
+          ) : (
+            <span style={{ marginLeft: 16, color: "#534AB7", fontWeight: 500 }}>Đang theo dõi: {w.days_so_far} ngày</span>
+          )}
+        </div>
+      </div>
+    ))}
+  </div>
+)}
         {/* ── FORM ── */}
         {tab === "form" && (
           <div>
