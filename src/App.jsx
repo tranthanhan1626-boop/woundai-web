@@ -348,6 +348,8 @@ export default function App() {
                 ← Chọn vết thương khác
               </button>
             </div>
+            {/* Lịch sử các lần khám trước */}
+            <VisitHistory woundId={selectedOldWound.id} />
 
             <Section title="Kích thước vết thương hôm nay">
               <Row3>
@@ -675,6 +677,58 @@ function ShapRow({ factor, type }) {
         <div style={{ height: 6, width: pct+"%", borderRadius: 3, background: isBad ? "#E24B4A" : "#1D9E75" }} />
       </div>
       <div style={{ fontSize: 12, color: "#666", lineHeight: 1.5 }}>{factor.explanation}</div>
+    </div>
+  )
+}
+function VisitHistory({ woundId }) {
+  const [visits, setVisits] = useState([])
+  useEffect(() => {
+    axios.get(`${API}/wounds/${woundId}/visits`)
+      .then(r => setVisits(r.data.visits))
+      .catch(() => {})
+  }, [woundId])
+
+  if (visits.length === 0) return null
+
+  const riskColor = {
+    low:    { bg: "#E1F5EE", text: "#085041", border: "#1D9E75" },
+    medium: { bg: "#FAEEDA", text: "#633806", border: "#EF9F27" },
+    high:   { bg: "#FCEBEB", text: "#791F1F", border: "#E24B4A" },
+  }
+
+  return (
+    <div style={{ background: "#fff", borderRadius: 14, border: "0.5px solid #E5E3DC", padding: 16, marginBottom: 12 }}>
+      <div style={{ fontSize: 11, fontWeight: 500, color: "#888", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 12 }}>
+        Lịch sử các lần khám trước
+      </div>
+      {visits.map((v, i) => (
+        <div key={v.id} style={{ borderLeft: "3px solid " + (i === 0 ? "#534AB7" : "#E5E3DC"), paddingLeft: 12, marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: i === 0 ? "#534AB7" : "#333" }}>
+              {v.visit_date}
+              {i === 0 && <span style={{ fontSize: 11, background: "#EEEDFE", color: "#3C3489", padding: "1px 8px", borderRadius: 6, marginLeft: 6 }}>Gần nhất</span>}
+            </div>
+            {v.predicted_days && (
+              <div style={{ fontSize: 13, fontWeight: 500, color: "#333" }}>
+                Dự báo: <span style={{ fontSize: 18, color: "#534AB7" }}>{v.predicted_days}</span> ngày
+              </div>
+            )}
+          </div>
+          <div style={{ fontSize: 12, color: "#666", marginBottom: 4 }}>
+            Kích thước: {v.length_cm} × {v.width_cm} × {v.depth_cm} cm
+          </div>
+          <div style={{ fontSize: 12, color: "#666", marginBottom: 6 }}>
+            Thay băng: {v.dressing_per_week}x/tuần · {v.nurse_type === "specialist" ? "Điều dưỡng chuyên khoa" : "Điều dưỡng đa khoa"}
+          </div>
+          {v.risk_level && (
+            <div style={{ display: "inline-block", padding: "3px 10px", borderRadius: 8, fontSize: 12, fontWeight: 500,
+              background: riskColor[v.risk_level]?.bg, color: riskColor[v.risk_level]?.text,
+              border: "0.5px solid " + riskColor[v.risk_level]?.border }}>
+              {v.risk_label} · {v.confidence_low}–{v.confidence_high} ngày
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   )
 }
