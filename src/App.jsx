@@ -772,8 +772,8 @@ function VisitHistory({ woundId }) {
         <div key={v.id} style={{ borderLeft: "3px solid " + (i === 0 ? "#534AB7" : "#E5E3DC"), paddingLeft: 12, marginBottom: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
             <div style={{ fontSize: 13, fontWeight: 500, color: i === 0 ? "#534AB7" : "#333" }}>
-              {v.visit_date}
-              {i === 0 && <span style={{ fontSize: 11, background: "#EEEDFE", color: "#3C3489", padding: "1px 8px", borderRadius: 6, marginLeft: 6 }}>Gần nhất</span>}
+              {v.visit_date} {v.created_at ? new Date(v.created_at).toLocaleTimeString("vi-VN", {hour: "2-digit", minute: "2-digit"}) : ""}
+              {i === visits.length - 1 && <span style={{ fontSize: 11, background: "#EEEDFE", color: "#3C3489", padding: "1px 8px", borderRadius: 6, marginLeft: 6 }}>Gần nhất</span>}
             </div>
             {v.predicted_days && (
               <div style={{ fontSize: 13, fontWeight: 500, color: "#333" }}>
