@@ -49,6 +49,9 @@ export default function App() {
   const [foundWounds,      setFoundWounds]      = useState([])
   const [selectedOldWound, setSelectedOldWound] = useState(null)
   const [addVisitMode,     setAddVisitMode]     = useState(false)
+  const [existingPatient,     setExistingPatient]     = useState(null)
+  const [findExistingLoading, setFindExistingLoading] = useState(false)
+  const [findExistingError,   setFindExistingError]   = useState("")
 
   useEffect(() => {
     axios.get(`${API}/retrain-status`)
@@ -138,16 +141,19 @@ export default function App() {
   }
 
   async function handleSubmit() {
-    if (!form.patient_name.trim()) { setError("Vui lòng nhập tên bệnh nhân"); return }
+    if (!existingPatient && !form.patient_name.trim()) { setError("Vui lòng nhập tên bệnh nhân"); return }
     if (!form.length_cm || !form.width_cm || !form.depth_cm) {
       setError("Vui lòng nhập đầy đủ kích thước vết thương"); return
     }
     setError(""); setLoading(true)
     try {
-      const caseRes = await axios.post(`${API}/cases`, {
-        patient_name:      form.patient_name,
-        age_group:         form.age_group,
-        diabetes:          form.diabetes,
+      const endpoint = existingPatient
+        ? `${API}/patients/${existingPatient.id}/wounds`
+        : `${API}/cases`
+      const caseRes = await axios.post(endpoint, {
+        patient_name:      existingPatient ? existingPatient.full_name : form.patient_name,
+        age_group:         existingPatient ? existingPatient.age_group : form.age_group,
+        diabetes:          existingPatient ? existingPatient.diabetes  : form.diabetes,
         wound_type:        form.wound_type,
         length_cm:         parseFloat(form.length_cm),
         width_cm:          parseFloat(form.width_cm),
@@ -158,12 +164,15 @@ export default function App() {
       const newWoundId = caseRes.data.wound_id
       setWoundId(newWoundId)
       const predRes = await axios.post(`${API}/predict`, {
-        ...form,
         wound_id:          newWoundId,
+        wound_type:        form.wound_type,
+        age_group:         existingPatient ? existingPatient.age_group : form.age_group,
+        diabetes:          existingPatient ? existingPatient.diabetes  : form.diabetes,
         length_cm:         parseFloat(form.length_cm),
         width_cm:          parseFloat(form.width_cm),
         depth_cm:          parseFloat(form.depth_cm),
         dressing_per_week: parseInt(form.dressing_per_week),
+        nurse_type:        form.nurse_type,
       })
       setResult(predRes.data)
       setTab("result")
@@ -199,6 +208,21 @@ export default function App() {
     setFindMode(false); setSearchId(""); setSearchError("")
     setFoundPatient(null); setFoundWounds([])
     setSelectedOldWound(null); setAddVisitMode(false)
+    setExistingPatient(null); setFindExistingError("")
+  }
+  async function handleFindExisting() {
+    const id = form.existingPatientId?.trim()
+    if (!id) return
+    setFindExistingError(""); setFindExistingLoading(true); setExistingPatient(null)
+    try {
+      const res = await axios.get(`${API}/patients/${id}`)
+      setExistingPatient(res.data.patient)
+    } catch (e) {
+      setFindExistingError(e.response?.status === 404
+        ? "Không tìm thấy bệnh nhân với ID này"
+        : "Lỗi kết nối — thử lại sau")
+    }
+    setFindExistingLoading(false)
   }
 
   const today = new Date().toISOString().split("T")[0]
@@ -429,21 +453,64 @@ export default function App() {
         {!findMode && tab === "form" && (
           <div>
             <Section title="Thông tin bệnh nhân">
-              <Field label="Họ và tên bệnh nhân">
-                <input value={form.patient_name} onChange={e => set("patient_name", e.target.value)}
-                  placeholder="Nguyễn Văn A" style={inputStyle} />
+              {/* Tìm bệnh nhân đã có */}
+              <Field label="Bệnh nhân đã có trong hệ thống? Nhập ID để tìm">
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input value={form.existingPatientId || ""}
+                    onChange={e => set("existingPatientId", e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && handleFindExisting()}
+                    placeholder="Dán ID bệnh nhân vào đây (nếu có)..."
+                    style={{ ...inputStyle, flex: 1 }} />
+                  <button onClick={handleFindExisting} disabled={findExistingLoading}
+                    style={{ padding: "9px 14px", borderRadius: 8, fontSize: 13, fontWeight: 500,
+                      border: "none", background: findExistingLoading ? "#9FE1CB" : "#1D9E75",
+                      color: "#fff", cursor: "pointer", whiteSpace: "nowrap" }}>
+                    {findExistingLoading ? "..." : "Tìm"}
+                  </button>
+                </div>
+                {findExistingError && (
+                  <div style={{ marginTop: 6, fontSize: 12, color: "#791F1F", background: "#FCEBEB", borderRadius: 8, padding: "6px 10px" }}>
+                    {findExistingError}
+                  </div>
+                )}
               </Field>
-              <Row2>
-                <Field label="Nhóm tuổi">
-                  <select value={form.age_group} onChange={e => set("age_group", e.target.value)} style={inputStyle}>
-                    {AGE_GROUPS.map(a => <option key={a}>{a}</option>)}
-                  </select>
-                </Field>
-                <Field label="Đái tháo đường">
-                  <ToggleBtn options={[["Không", false], ["Có", true]]} value={form.diabetes} onChange={v => set("diabetes", v)} />
-                </Field>
-              </Row2>
+
+              {/* Hiển thị bệnh nhân tìm thấy */}
+              {existingPatient && (
+                <div style={{ background: "#E1F5EE", borderRadius: 10, padding: "10px 14px", marginBottom: 12, border: "0.5px solid #1D9E75" }}>
+                  <div style={{ fontSize: 12, color: "#0F6E56", fontWeight: 500, marginBottom: 2 }}>✅ Đã tìm thấy — sẽ thêm vết thương mới cho:</div>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>{existingPatient.full_name}</div>
+                  <div style={{ fontSize: 12, color: "#555", marginTop: 2 }}>
+                    Tuổi: {existingPatient.age_group} · Đái tháo đường: {existingPatient.diabetes ? "Có" : "Không"}
+                  </div>
+                  <button onClick={() => { setExistingPatient(null); set("existingPatientId", "") }}
+                    style={{ marginTop: 6, fontSize: 12, color: "#0F6E56", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                    ✕ Huỷ — nhập bệnh nhân mới
+                  </button>
+                </div>
+              )}
+
+              {/* Form bệnh nhân mới — ẩn nếu đã tìm thấy bệnh nhân cũ */}
+              {!existingPatient && (
+                <>
+                  <Field label="Họ và tên bệnh nhân">
+                    <input value={form.patient_name} onChange={e => set("patient_name", e.target.value)}
+                      placeholder="Nguyễn Văn A" style={inputStyle} />
+                  </Field>
+                  <Row2>
+                    <Field label="Nhóm tuổi">
+                      <select value={form.age_group} onChange={e => set("age_group", e.target.value)} style={inputStyle}>
+                        {AGE_GROUPS.map(a => <option key={a}>{a}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Đái tháo đường">
+                      <ToggleBtn options={[["Không", false], ["Có", true]]} value={form.diabetes} onChange={v => set("diabetes", v)} />
+                    </Field>
+                  </Row2>
+                </>
+              )}
             </Section>
+          
 
             <Section title="Thông tin vết thương">
               <Field label="Loại vết thương">
