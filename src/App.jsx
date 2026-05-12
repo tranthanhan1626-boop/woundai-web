@@ -9,7 +9,7 @@ const WOUND_TYPES = [
   { value: "loet_tinh_mach", label: "Loét tĩnh mạch" },
   { value: "bong_do_2",      label: "Bỏng độ II" },
 ]
-const AGE_GROUPS      = ["18-40", "41-60", "61-75", ">75"]
+const AGE_GROUPS       = ["18-40", "41-60", "61-75", ">75"]
 const DRESSING_OPTIONS = [1,2,3,4,5,6,7]
 
 const EMPTY_FORM = {
@@ -25,22 +25,30 @@ const riskColor = {
 }
 
 export default function App() {
-  const [tab,           setTab]           = useState("form")
-  const [form,          setForm]          = useState(EMPTY_FORM)
-  const [result,        setResult]        = useState(null)
-  const [woundId,       setWoundId]       = useState(null)
-  const [loading,       setLoading]       = useState(false)
-  const [error,         setError]         = useState("")
-  const [retrainStatus, setRetrainStatus] = useState(null)
-  const [confirmModal,  setConfirmModal]  = useState(false)
-  const [healDate,      setHealDate]      = useState("")
-  const [healNote,      setHealNote]      = useState("")
-  const [healLoading,   setHealLoading]   = useState(false)
-  const [healResult,    setHealResult]    = useState(null)
-  const [historyTab,    setHistoryTab]    = useState(false)
-  const [wounds,        setWounds]        = useState([])
-  const [selectedWound, setSelectedWound] = useState(null)
-  const [visits,        setVisits]        = useState([])
+  const [tab,              setTab]              = useState("form")
+  const [form,             setForm]             = useState(EMPTY_FORM)
+  const [result,           setResult]           = useState(null)
+  const [woundId,          setWoundId]          = useState(null)
+  const [loading,          setLoading]          = useState(false)
+  const [error,            setError]            = useState("")
+  const [retrainStatus,    setRetrainStatus]    = useState(null)
+  const [confirmModal,     setConfirmModal]     = useState(false)
+  const [healDate,         setHealDate]         = useState("")
+  const [healNote,         setHealNote]         = useState("")
+  const [healLoading,      setHealLoading]      = useState(false)
+  const [healResult,       setHealResult]       = useState(null)
+  const [historyTab,       setHistoryTab]       = useState(false)
+  const [wounds,           setWounds]           = useState([])
+  const [selectedWound,    setSelectedWound]    = useState(null)
+  const [visits,           setVisits]           = useState([])
+  const [findMode,         setFindMode]         = useState(false)
+  const [searchId,         setSearchId]         = useState("")
+  const [searchLoading,    setSearchLoading]    = useState(false)
+  const [searchError,      setSearchError]      = useState("")
+  const [foundPatient,     setFoundPatient]     = useState(null)
+  const [foundWounds,      setFoundWounds]      = useState([])
+  const [selectedOldWound, setSelectedOldWound] = useState(null)
+  const [addVisitMode,     setAddVisitMode]     = useState(false)
 
   useEffect(() => {
     axios.get(`${API}/retrain-status`)
@@ -51,24 +59,82 @@ export default function App() {
   function set(field, value) { setForm(f => ({ ...f, [field]: value })) }
 
   async function loadWounds() {
-    setHistoryTab(true)
+    setHistoryTab(true); setFindMode(false)
     try {
       const res = await axios.get(`${API}/wounds`)
       setWounds(res.data.wounds)
-    } catch (e) {
-      setWounds([])
-    }
+    } catch { setWounds([]) }
   }
 
   async function loadVisits(wound) {
-    setSelectedWound(wound)
-    setVisits([])
+    setSelectedWound(wound); setVisits([])
     try {
       const res = await axios.get(`${API}/wounds/${wound.id}/visits`)
       setVisits(res.data.visits)
+    } catch { setVisits([]) }
+  }
+
+  async function handleSearch() {
+    if (!searchId.trim()) { setSearchError("Vui lòng nhập ID bệnh nhân"); return }
+    setSearchError(""); setSearchLoading(true); setFoundPatient(null); setFoundWounds([])
+    try {
+      const res = await axios.get(`${API}/patients/${searchId.trim()}`)
+      setFoundPatient(res.data.patient)
+      setFoundWounds(res.data.wounds)
     } catch (e) {
-      setVisits([])
+      setSearchError(e.response?.status === 404
+        ? "Không tìm thấy bệnh nhân với ID này"
+        : "Lỗi kết nối — thử lại sau ít phút")
     }
+    setSearchLoading(false)
+  }
+
+  function handleSelectOldWound(wound) {
+    if (wound.status === "healed") return
+    setSelectedOldWound(wound)
+    setAddVisitMode(true)
+    setForm(f => ({ ...f,
+      wound_type: wound.wound_type,
+      length_cm: "", width_cm: "", depth_cm: "",
+      dressing_per_week: 3, nurse_type: "specialist"
+    }))
+    setError(""); setResult(null); setHealResult(null)
+  }
+
+  async function handleAddVisit() {
+    if (!form.length_cm || !form.width_cm || !form.depth_cm) {
+      setError("Vui lòng nhập đầy đủ kích thước vết thương"); return
+    }
+    setError(""); setLoading(true)
+    try {
+      await axios.post(`${API}/wounds/${selectedOldWound.id}/visits`, {
+        wound_type:        selectedOldWound.wound_type,
+        age_group:         foundPatient.age_group,
+        diabetes:          foundPatient.diabetes,
+        length_cm:         parseFloat(form.length_cm),
+        width_cm:          parseFloat(form.width_cm),
+        depth_cm:          parseFloat(form.depth_cm),
+        dressing_per_week: parseInt(form.dressing_per_week),
+        nurse_type:        form.nurse_type,
+      })
+      const predRes = await axios.post(`${API}/predict`, {
+        wound_id:          selectedOldWound.id,
+        wound_type:        selectedOldWound.wound_type,
+        age_group:         foundPatient.age_group,
+        diabetes:          foundPatient.diabetes,
+        length_cm:         parseFloat(form.length_cm),
+        width_cm:          parseFloat(form.width_cm),
+        depth_cm:          parseFloat(form.depth_cm),
+        dressing_per_week: parseInt(form.dressing_per_week),
+        nurse_type:        form.nurse_type,
+      })
+      setResult(predRes.data)
+      setWoundId(selectedOldWound.id)
+      setTab("result")
+    } catch (e) {
+      setError("Lỗi: " + (e.response?.data?.detail || "Không kết nối được server"))
+    }
+    setLoading(false)
   }
 
   async function handleSubmit() {
@@ -91,7 +157,6 @@ export default function App() {
       })
       const newWoundId = caseRes.data.wound_id
       setWoundId(newWoundId)
-
       const predRes = await axios.post(`${API}/predict`, {
         ...form,
         wound_id:          newWoundId,
@@ -102,7 +167,7 @@ export default function App() {
       })
       setResult(predRes.data)
       setTab("result")
-    } catch (e) {
+    } catch {
       setError("Không kết nối được server. Hãy thử lại sau ít phút.")
     }
     setLoading(false)
@@ -131,9 +196,12 @@ export default function App() {
     setForm(EMPTY_FORM); setResult(null); setWoundId(null)
     setTab("form"); setError(""); setHealResult(null)
     setHealDate(""); setHealNote("")
+    setFindMode(false); setSearchId(""); setSearchError("")
+    setFoundPatient(null); setFoundWounds([])
+    setSelectedOldWound(null); setAddVisitMode(false)
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toISOString().split("T")[0]
 
   return (
     <div style={{ minHeight: "100vh", background: "#F8F7F2", fontFamily: "system-ui, sans-serif" }}>
@@ -173,16 +241,23 @@ export default function App() {
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px 16px 40px" }}>
 
         {/* Tabs */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
           {["form","result"].map(t => (
-            <button key={t} onClick={() => { setHistoryTab(false); t === "result" && result ? setTab(t) : setTab("form") }}
+            <button key={t} onClick={() => { setHistoryTab(false); setFindMode(false); t === "result" && result ? setTab(t) : setTab("form") }}
               style={{ padding: "7px 18px", borderRadius: 20, fontSize: 13, fontWeight: 500, cursor: "pointer",
-                border: "0.5px solid " + (!historyTab && tab === t ? "#1D9E75" : "#ddd"),
-                background: !historyTab && tab === t ? "#1D9E75" : "#fff",
-                color: !historyTab && tab === t ? "#fff" : "#666" }}>
-              {t === "form" ? "Nhập ca" : "Kết quả dự báo"}
+                border: "0.5px solid " + (!historyTab && !findMode && tab === t ? "#1D9E75" : "#ddd"),
+                background: !historyTab && !findMode && tab === t ? "#1D9E75" : "#fff",
+                color: !historyTab && !findMode && tab === t ? "#fff" : "#666" }}>
+              {t === "form" ? "Nhập ca mới" : "Kết quả dự báo"}
             </button>
           ))}
+          <button onClick={() => { setHistoryTab(false); setFindMode(true); setAddVisitMode(false); setTab("form") }}
+            style={{ padding: "7px 18px", borderRadius: 20, fontSize: 13, fontWeight: 500, cursor: "pointer",
+              border: "0.5px solid " + (findMode ? "#534AB7" : "#ddd"),
+              background: findMode ? "#534AB7" : "#fff",
+              color: findMode ? "#fff" : "#666" }}>
+            Tìm bệnh nhân cũ
+          </button>
           <button onClick={loadWounds}
             style={{ padding: "7px 18px", borderRadius: 20, fontSize: 13, fontWeight: 500, cursor: "pointer",
               border: "0.5px solid " + (historyTab ? "#1D9E75" : "#ddd"),
@@ -192,25 +267,139 @@ export default function App() {
           </button>
         </div>
 
+        {/* ── TÌM BỆNH NHÂN CŨ ── */}
+        {findMode && !addVisitMode && (
+          <div>
+            <div style={{ background: "#fff", borderRadius: 14, border: "0.5px solid #E5E3DC", padding: 16, marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 500, color: "#888", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 12 }}>Tìm bệnh nhân theo ID</div>
+              <div style={{ fontSize: 12, color: "#888", marginBottom: 10, lineHeight: 1.6 }}>
+                ID bệnh nhân nằm trong tab Lịch sử, bên dưới tên mỗi bệnh nhân.
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input value={searchId} onChange={e => setSearchId(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleSearch()}
+                  placeholder="Dán ID bệnh nhân vào đây..."
+                  style={{ ...inputStyle, flex: 1 }} />
+                <button onClick={handleSearch} disabled={searchLoading}
+                  style={{ padding: "9px 16px", borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: "pointer",
+                    border: "none", background: searchLoading ? "#9FE1CB" : "#1D9E75", color: "#fff", whiteSpace: "nowrap" }}>
+                  {searchLoading ? "Đang tìm..." : "Tìm →"}
+                </button>
+              </div>
+              {searchError && (
+                <div style={{ marginTop: 8, fontSize: 13, color: "#791F1F", background: "#FCEBEB", borderRadius: 8, padding: "8px 12px" }}>
+                  {searchError}
+                </div>
+              )}
+            </div>
+
+            {foundPatient && (
+              <div>
+                <div style={{ background: "#fff", borderRadius: 14, border: "0.5px solid #534AB7", padding: 16, marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 500, color: "#534AB7", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 8 }}>Đã tìm thấy</div>
+                  <div style={{ fontSize: 15, fontWeight: 500 }}>{foundPatient.full_name}</div>
+                  <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>
+                    Tuổi: {foundPatient.age_group} · Đái tháo đường: {foundPatient.diabetes ? "Có" : "Không"}
+                  </div>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: "#555", marginBottom: 8, marginLeft: 4 }}>
+                  Chọn vết thương đang điều trị để thêm lần khám mới:
+                </div>
+                {foundWounds.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: 24, color: "#888", fontSize: 13 }}>Chưa có vết thương nào</div>
+                ) : foundWounds.map(w => (
+                  <div key={w.id} onClick={() => handleSelectOldWound(w)}
+                    style={{ background: "#fff", borderRadius: 14, padding: 16, marginBottom: 10,
+                      border: "0.5px solid " + (w.status === "healed" ? "#E5E3DC" : "#534AB7"),
+                      cursor: w.status === "healed" ? "not-allowed" : "pointer",
+                      opacity: w.status === "healed" ? 0.6 : 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 500 }}>
+                          {WOUND_TYPES.find(x => x.value === w.wound_type)?.label || w.wound_type}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>Bắt đầu: {w.created_date}</div>
+                        {w.status === "active" && (
+                          <div style={{ fontSize: 12, color: "#534AB7", marginTop: 2 }}>Đang theo dõi: {w.days_so_far} ngày</div>
+                        )}
+                      </div>
+                      {w.status === "healed"
+                        ? <span style={{ fontSize: 12, background: "#E1F5EE", color: "#085041", padding: "3px 10px", borderRadius: 10 }}>✓ Đã lành</span>
+                        : <span style={{ fontSize: 12, background: "#EEEDFE", color: "#3C3489", padding: "3px 10px", borderRadius: 10 }}>Thêm khám →</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── NHẬP LẦN KHÁM MỚI (bệnh nhân cũ) ── */}
+        {findMode && addVisitMode && selectedOldWound && (
+          <div>
+            <div style={{ background: "#EEEDFE", borderRadius: 14, border: "0.5px solid #534AB7", padding: 14, marginBottom: 12 }}>
+              <div style={{ fontSize: 12, color: "#534AB7", fontWeight: 500 }}>Đang nhập cho:</div>
+              <div style={{ fontSize: 15, fontWeight: 500, marginTop: 2 }}>{foundPatient.full_name}</div>
+              <div style={{ fontSize: 12, color: "#534AB7", marginTop: 2 }}>
+                {WOUND_TYPES.find(x => x.value === selectedOldWound.wound_type)?.label} · Theo dõi ngày {selectedOldWound.days_so_far}
+              </div>
+              <button onClick={() => setAddVisitMode(false)}
+                style={{ marginTop: 8, fontSize: 12, color: "#534AB7", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                ← Chọn vết thương khác
+              </button>
+            </div>
+
+            <Section title="Kích thước vết thương hôm nay">
+              <Row3>
+                <Field label="Dài (cm)"><input type="number" value={form.length_cm} onChange={e => set("length_cm", e.target.value)} placeholder="4.2" step="0.1" min="0" style={inputStyle} /></Field>
+                <Field label="Rộng (cm)"><input type="number" value={form.width_cm}  onChange={e => set("width_cm",  e.target.value)} placeholder="3.1" step="0.1" min="0" style={inputStyle} /></Field>
+                <Field label="Sâu (cm)"><input type="number" value={form.depth_cm}  onChange={e => set("depth_cm",  e.target.value)} placeholder="0.8" step="0.1" min="0" style={inputStyle} /></Field>
+              </Row3>
+            </Section>
+
+            <Section title="Thông tin chăm sóc">
+              <Field label="Thay băng mỗi tuần">
+                <div style={{ display: "flex", gap: 6 }}>
+                  {DRESSING_OPTIONS.map(n => (
+                    <button key={n} onClick={() => set("dressing_per_week", n)}
+                      style={{ width: 40, height: 40, borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer",
+                        border: "0.5px solid " + (form.dressing_per_week === n ? "#534AB7" : "#ddd"),
+                        background: form.dressing_per_week === n ? "#534AB7" : "#fff",
+                        color: form.dressing_per_week === n ? "#fff" : "#555" }}>{n}</button>
+                  ))}
+                </div>
+              </Field>
+              <Field label="Người chăm sóc">
+                <ToggleBtn options={[["Điều dưỡng chuyên khoa","specialist"],["Điều dưỡng đa khoa","general"]]} value={form.nurse_type} onChange={v => set("nurse_type", v)} />
+              </Field>
+            </Section>
+
+            {error && <div style={{ background: "#FCEBEB", border: "0.5px solid #E24B4A", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#791F1F", marginBottom: 12 }}>{error}</div>}
+
+            <button onClick={handleAddVisit} disabled={loading}
+              style={{ width: "100%", padding: 14, borderRadius: 12, fontSize: 15, fontWeight: 500, border: "none", cursor: loading ? "not-allowed" : "pointer",
+                background: loading ? "#AFA9EC" : "#534AB7", color: "#fff" }}>
+              {loading ? "Đang dự báo..." : "Lưu & Dự báo lần này →"}
+            </button>
+          </div>
+        )}
+
         {/* ── LỊCH SỬ ── */}
         {historyTab && (
           <div>
             {wounds.length === 0 ? (
-              <div style={{ textAlign: "center", padding: 40, color: "#888", fontSize: 14 }}>
-                Chưa có dữ liệu vết thương
-              </div>
+              <div style={{ textAlign: "center", padding: 40, color: "#888", fontSize: 14 }}>Chưa có dữ liệu vết thương</div>
             ) : wounds.map(w => (
               <div key={w.id} style={{ background: "#fff", borderRadius: 14, border: "0.5px solid " + (w.status === "healed" ? "#1D9E75" : "#E5E3DC"), padding: 16, marginBottom: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 500 }}>{w.patient_name}</div>
                     <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{w.wound_type} · {w.location}</div>
+                    <div style={{ fontSize: 11, color: "#bbb", marginTop: 3, fontFamily: "monospace" }}>ID: {w.patient_id}</div>
                   </div>
-                  {w.status === "healed" ? (
-                    <span style={{ fontSize: 12, background: "#E1F5EE", color: "#085041", padding: "3px 10px", borderRadius: 10 }}>✓ Đã lành</span>
-                  ) : (
-                    <span style={{ fontSize: 12, background: "#FAEEDA", color: "#633806", padding: "3px 10px", borderRadius: 10 }}>Đang điều trị</span>
-                  )}
+                  {w.status === "healed"
+                    ? <span style={{ fontSize: 12, background: "#E1F5EE", color: "#085041", padding: "3px 10px", borderRadius: 10 }}>✓ Đã lành</span>
+                    : <span style={{ fontSize: 12, background: "#FAEEDA", color: "#633806", padding: "3px 10px", borderRadius: 10 }}>Đang điều trị</span>}
                 </div>
                 <div style={{ marginTop: 10, fontSize: 13, color: "#555" }}>
                   <span>Ngày bắt đầu: {w.created_date}</span>
@@ -234,8 +423,8 @@ export default function App() {
           </div>
         )}
 
-        {/* ── FORM ── */}
-        {tab === "form" && (
+        {/* ── NHẬP CA MỚI ── */}
+        {!findMode && tab === "form" && (
           <div>
             <Section title="Thông tin bệnh nhân">
               <Field label="Họ và tên bệnh nhân">
@@ -307,7 +496,9 @@ export default function App() {
         {tab === "result" && result && (
           <div>
             <div style={{ background: "#fff", borderRadius: 14, border: "0.5px solid #E5E3DC", padding: 20, marginBottom: 12 }}>
-              <div style={{ fontSize: 13, color: "#888", marginBottom: 4 }}>{form.patient_name} · {WOUND_TYPES.find(w=>w.value===form.wound_type)?.label}</div>
+              <div style={{ fontSize: 13, color: "#888", marginBottom: 4 }}>
+                {foundPatient ? foundPatient.full_name : form.patient_name} · {WOUND_TYPES.find(w => w.value === (selectedOldWound?.wound_type || form.wound_type))?.label}
+              </div>
               <div style={{ display: "flex", alignItems: "flex-end", gap: 12, marginBottom: 12 }}>
                 <div>
                   <div style={{ fontSize: 52, fontWeight: 500, lineHeight: 1 }}>{result.predicted_days}</div>
@@ -335,7 +526,6 @@ export default function App() {
                 {result.shap.helping_factors.map(f => <ShapRow key={f.feature} factor={f} type="good" />)}
               </Section>
             )}
-
             {result.shap.interventions.length > 0 && (
               <Section title="Gợi ý can thiệp điều dưỡng">
                 {result.shap.interventions.map((iv,i) => (
@@ -353,7 +543,7 @@ export default function App() {
               <div style={{ background: "#fff", borderRadius: 14, border: "0.5px solid #E5E3DC", padding: 16, marginBottom: 12 }}>
                 <div style={{ fontSize: 11, fontWeight: 500, color: "#888", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 10 }}>Xác nhận kết quả thực tế</div>
                 <div style={{ fontSize: 13, color: "#555", marginBottom: 12, lineHeight: 1.6 }}>
-                  Khi vết thương đã lành hoàn toàn, hãy xác nhận để hệ thống học từ kết quả thực tế — giúp mô hình ngày càng chính xác hơn.
+                  Khi vết thương đã lành hoàn toàn, hãy xác nhận để hệ thống học từ kết quả thực tế.
                 </div>
                 <button onClick={() => setConfirmModal(true)}
                   style={{ width: "100%", padding: 12, borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: "pointer",
@@ -364,14 +554,7 @@ export default function App() {
             ) : (
               <div style={{ background: "#E1F5EE", borderRadius: 14, border: "0.5px solid #1D9E75", padding: 16, marginBottom: 12 }}>
                 <div style={{ fontSize: 14, fontWeight: 500, color: "#085041", marginBottom: 4 }}>✅ Đã xác nhận lành sau {healResult.actual_days} ngày</div>
-                {healResult.retrain_message && (
-                  <div style={{ fontSize: 12, color: "#0F6E56", marginTop: 6 }}>{healResult.retrain_message}</div>
-                )}
-                {healResult.retrain_status && (
-                  <div style={{ fontSize: 12, color: "#0F6E56", marginTop: 4 }}>
-                    Tiến độ cập nhật mô hình: {healResult.retrain_status.new_cases}/{healResult.retrain_status.trigger_at} ca
-                  </div>
-                )}
+                {healResult.retrain_message && <div style={{ fontSize: 12, color: "#0F6E56", marginTop: 6 }}>{healResult.retrain_message}</div>}
               </div>
             )}
 
@@ -390,24 +573,15 @@ export default function App() {
           <div style={{ background: "#F8F7F2", borderRadius: 16, width: "100%", maxWidth: 600, padding: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <div style={{ fontSize: 16, fontWeight: 500 }}>{selectedWound.patient_name}</div>
-              <button onClick={() => setSelectedWound(null)}
-                style={{ fontSize: 20, color: "#888", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>✕</button>
+              <button onClick={() => setSelectedWound(null)} style={{ fontSize: 20, color: "#888", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>✕</button>
             </div>
-
-            <div style={{ fontSize: 12, color: "#888", marginBottom: 12 }}>
-              {selectedWound.wound_type} · {selectedWound.location} · Bắt đầu: {selectedWound.created_date}
-            </div>
-
+            <div style={{ fontSize: 12, color: "#888", marginBottom: 12 }}>{selectedWound.wound_type} · {selectedWound.location} · Bắt đầu: {selectedWound.created_date}</div>
             {selectedWound.status === "healed" && (
               <div style={{ background: "#E1F5EE", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#085041", fontWeight: 500, marginBottom: 12 }}>
                 🎉 Lành sau {selectedWound.actual_days} ngày · Ngày lành: {selectedWound.actual_healed_date}
               </div>
             )}
-
-            <div style={{ fontSize: 11, fontWeight: 500, color: "#888", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 8 }}>
-              Lịch sử các lần khám
-            </div>
-
+            <div style={{ fontSize: 11, fontWeight: 500, color: "#888", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 8 }}>Lịch sử các lần khám</div>
             {visits.length === 0 ? (
               <div style={{ fontSize: 13, color: "#888", textAlign: "center", padding: 20 }}>Đang tải...</div>
             ) : visits.map((v, i) => (
@@ -428,25 +602,20 @@ export default function App() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
           <div style={{ background: "#fff", borderRadius: 16, padding: 24, width: "100%", maxWidth: 400 }}>
             <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 6 }}>Xác nhận vết thương đã lành</div>
-            <div style={{ fontSize: 13, color: "#888", marginBottom: 16 }}>{form.patient_name} · {WOUND_TYPES.find(w=>w.value===form.wound_type)?.label}</div>
-
+            <div style={{ fontSize: 13, color: "#888", marginBottom: 16 }}>
+              {foundPatient ? foundPatient.full_name : form.patient_name} · {WOUND_TYPES.find(w => w.value === (selectedOldWound?.wound_type || form.wound_type))?.label}
+            </div>
             <Field label="Ngày lành thực tế">
-              <input type="date" value={healDate} onChange={e => setHealDate(e.target.value)}
-                max={today} style={{ ...inputStyle, width: "100%" }} />
+              <input type="date" value={healDate} onChange={e => setHealDate(e.target.value)} max={today} style={{ ...inputStyle, width: "100%" }} />
             </Field>
-
             <Field label="Ghi chú điều dưỡng (tuỳ chọn)">
               <textarea value={healNote} onChange={e => setHealNote(e.target.value)}
-                placeholder="Tình trạng lành, ghi chú đặc biệt..."
-                rows={3} style={{ ...inputStyle, width: "100%", resize: "vertical" }} />
+                placeholder="Tình trạng lành, ghi chú đặc biệt..." rows={3}
+                style={{ ...inputStyle, width: "100%", resize: "vertical" }} />
             </Field>
-
             <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
               <button onClick={() => setConfirmModal(false)}
-                style={{ flex: 1, padding: 12, borderRadius: 10, fontSize: 14, cursor: "pointer",
-                  border: "0.5px solid #ddd", background: "#fff", color: "#555" }}>
-                Huỷ
-              </button>
+                style={{ flex: 1, padding: 12, borderRadius: 10, fontSize: 14, cursor: "pointer", border: "0.5px solid #ddd", background: "#fff", color: "#555" }}>Huỷ</button>
               <button onClick={handleConfirmHealed} disabled={healLoading}
                 style={{ flex: 1, padding: 12, borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: "pointer",
                   border: "none", background: healLoading ? "#9FE1CB" : "#1D9E75", color: "#fff" }}>
@@ -460,7 +629,6 @@ export default function App() {
   )
 }
 
-// ── Components ───────────────────────────────────────────────────────────────
 function Section({ title, children }) {
   return (
     <div style={{ background: "#fff", borderRadius: 14, border: "0.5px solid #E5E3DC", padding: 16, marginBottom: 12 }}>
