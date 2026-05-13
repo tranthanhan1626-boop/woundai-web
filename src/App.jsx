@@ -1,3 +1,4 @@
+import Stats from "./Stats"
 import { useState, useEffect } from "react"
 import axios from "axios"
 
@@ -52,6 +53,7 @@ export default function App() {
   const [existingPatient,     setExistingPatient]     = useState(null)
   const [findExistingLoading, setFindExistingLoading] = useState(false)
   const [findExistingError,   setFindExistingError]   = useState("")
+  const [showStats, setShowStats] = useState(false)
 
   useEffect(() => {
     axios.get(`${API}/retrain-status`)
@@ -227,6 +229,8 @@ export default function App() {
 
   const today = new Date().toISOString().split("T")[0]
 
+  if (showStats) return <Stats onBack={() => setShowStats(false)} />
+
   return (
     <div style={{ minHeight: "100vh", background: "#F8F7F2", fontFamily: "system-ui, sans-serif" }}>
 
@@ -281,6 +285,11 @@ export default function App() {
               background: findMode ? "#534AB7" : "#fff",
               color: findMode ? "#fff" : "#666" }}>
             Tìm bệnh nhân cũ
+          </button>
+          <button onClick={() => setShowStats(true)}
+            style={{ padding: "7px 18px", borderRadius: 20, fontSize: 13, fontWeight: 500, cursor: "pointer",
+              border: "0.5px solid #ddd", background: "#fff", color: "#666" }}>
+            Thống kê
           </button>
           <button onClick={loadWounds}
             style={{ padding: "7px 18px", borderRadius: 20, fontSize: 13, fontWeight: 500, cursor: "pointer",
