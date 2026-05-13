@@ -360,23 +360,7 @@ export default function Stats({ onBack }) {
               </div>
               <div style={{ fontSize: 11, color: "#888", marginBottom: 8 }}>Mỗi chấm = 1 ca đã lành</div>
               <div style={{ height: 200 }}>
-                <Scatter data={{
-                  ...scatterData,
-                  datasets: [
-                    // đường chéo lý tưởng
-                    {
-                      label: "Dự báo hoàn hảo",
-                      data: [{ x: 0, y: 0 }, { x: maxDay, y: maxDay }],
-                      type: "line",
-                      borderColor: "#E5E3DC",
-                      borderWidth: 1.5,
-                      borderDash: [4, 4],
-                      pointRadius: 0,
-                      fill: false,
-                    },
-                    ...scatterData.datasets,
-                  ],
-                }} options={{
+                <Scatter data={scatterData} options={{
                   responsive: true, maintainAspectRatio: false,
                   plugins: {
                     legend: { position: "bottom", labels: { font: { size: 10 }, boxWidth: 10, padding: 8 } },
