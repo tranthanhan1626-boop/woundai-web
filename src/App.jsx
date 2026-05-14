@@ -559,12 +559,13 @@ export default function App() {
                   <div key={v.id} style={{ background: "#fff", borderRadius: 10, padding: "12px 14px", marginBottom: 8, borderLeft: "3px solid " + (i === visits.length - 1 ? "#1D9E75" : "#E5E3DC") }}>
                     <div style={{ fontSize: 13, fontWeight: 500, color: i === visits.length - 1 ? "#085041" : "#333" }}>
                       {v.visit_date}
+                      {v.created_at && <span style={{ fontSize: 12, color: "#888", marginLeft: 8, fontWeight: 400 }}>{new Date(v.created_at).toLocaleTimeString("vi-VN", {hour: "2-digit", minute: "2-digit", second: "2-digit"})}</span>}
                       {i === visits.length - 1 && <span style={{ fontSize: 11, background: "#E1F5EE", color: "#085041", padding: "1px 8px", borderRadius: 6, marginLeft: 6 }}>Gần nhất</span>}
                     </div>
                     <div style={{ fontSize: 12, color: "#666", marginTop: 3 }}>Kích thước: {v.length_cm} × {v.width_cm} × {v.depth_cm} cm</div>
                     <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>Thay băng: {v.dressing_per_week}x/tuần · {v.nurse_type === "specialist" ? "Điều dưỡng chuyên khoa" : "Điều dưỡng đa khoa"}</div>
                     {v.predicted_days && (
-                      <div style={{ marginTop: 6, fontSize: 12, color: "#534AB7", fontWeight: 500 }}>Dự báo: {v.predicted_days} ngày</div>
+                      <div style={{ marginTop: 6, fontSize: 12, color: "#534AB7", fontWeight: 500 }}>🔮 Dự báo: {v.predicted_days} ngày · {v.confidence_low}–{v.confidence_high} ngày</div>
                     )}
                   </div>
                 ))}
@@ -760,35 +761,8 @@ export default function App() {
         )}
       </div>
 
-      {/* Modal chi tiết vết thương */}
-      {selectedWound && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 40, paddingLeft: 16, paddingRight: 16, paddingBottom: 40 }}>
-          <div style={{ background: "#F8F7F2", borderRadius: 16, width: "100%", maxWidth: 600, padding: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div style={{ fontSize: 16, fontWeight: 500 }}>{selectedWound.patient_name}</div>
-              <button onClick={() => setSelectedWound(null)} style={{ fontSize: 20, color: "#888", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>✕</button>
-            </div>
-            <div style={{ fontSize: 12, color: "#888", marginBottom: 12 }}>{selectedWound.wound_type} · {selectedWound.location} · Bắt đầu: {selectedWound.created_date}</div>
-            {selectedWound.status === "healed" && (
-              <div style={{ background: "#E1F5EE", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#085041", fontWeight: 500, marginBottom: 12 }}>
-                🎉 Lành sau {selectedWound.actual_days} ngày · Ngày lành: {selectedWound.actual_healed_date}
-              </div>
-            )}
-            <div style={{ fontSize: 11, fontWeight: 500, color: "#888", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 8 }}>Lịch sử các lần khám</div>
-            {visits.length === 0 ? (
-              <div style={{ fontSize: 13, color: "#888", textAlign: "center", padding: 20 }}>Đang tải...</div>
-            ) : visits.map((v, i) => (
-              <div key={v.id} style={{ background: "#fff", borderRadius: 10, padding: "12px 14px", marginBottom: 8, borderLeft: "3px solid " + (i === 0 ? "#1D9E75" : "#E5E3DC") }}>
-                <div style={{ fontSize: 13, fontWeight: 500, color: i === 0 ? "#085041" : "#333" }}>
-                  {v.visit_date} {i === 0 && <span style={{ fontSize: 11, background: "#E1F5EE", color: "#085041", padding: "1px 8px", borderRadius: 6, marginLeft: 6 }}>Gần nhất</span>}
-                </div>
-                <div style={{ fontSize: 12, color: "#666", marginTop: 3 }}>Kích thước: {v.length_cm} × {v.width_cm} × {v.depth_cm} cm</div>
-                <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>Thay băng: {v.dressing_per_week}x/tuần · {v.nurse_type === "specialist" ? "Điều dưỡng chuyên khoa" : "Điều dưỡng đa khoa"}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      
+      
 
       {/* Modal xác nhận lành */}
       {confirmModal && (
