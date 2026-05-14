@@ -574,7 +574,7 @@ export default function App() {
         )}
 
         {/* ── NHẬP CA MỚI ── */}
-        {!findMode && tab === "form" && (
+        {!findMode && !historyTab && tab === "form" && (
           <div>
             <Section title="Thông tin bệnh nhân">
               {/* Tìm bệnh nhân đã có */}
