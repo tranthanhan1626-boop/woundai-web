@@ -476,6 +476,7 @@ export default function App() {
                         <div style={{ fontSize: 12, color: "#888", marginTop: 3 }}>
                           {p.age_group} · {p.diabetes ? "Đái tháo đường" : "Không ĐTĐ"}
                         </div>
+                        <div style={{ fontSize: 11, color: "#bbb", marginTop: 2, fontFamily: "monospace" }}>ID: {p.id}</div>
                         <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>
                           {p.total_wounds} vết thương
                           {p.active_wounds > 0 && <span style={{ color: "#534AB7", marginLeft: 8 }}>· {p.active_wounds} đang điều trị</span>}
