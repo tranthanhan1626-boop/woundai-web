@@ -39,8 +39,12 @@ export default function App() {
   const [healLoading,      setHealLoading]      = useState(false)
   const [healResult,       setHealResult]       = useState(null)
   const [historyTab,       setHistoryTab]       = useState(false)
+  const [historyScreen,    setHistoryScreen]    = useState("patients")
+  const [patients,         setPatients]         = useState([])
+  const [selectedPatient,  setSelectedPatient]  = useState(null)
   const [wounds,           setWounds]           = useState([])
   const [selectedWound,    setSelectedWound]    = useState(null)
+  const [historyFilter,    setHistoryFilter]    = useState("all")
   const [visits,           setVisits]           = useState([])
   const [findMode,         setFindMode]         = useState(false)
   const [searchId,         setSearchId]         = useState("")
@@ -63,10 +67,21 @@ export default function App() {
 
   function set(field, value) { setForm(f => ({ ...f, [field]: value })) }
 
-  async function loadWounds() {
+  async function loadPatients() {
     setHistoryTab(true); setFindMode(false)
+    setHistoryScreen("patients"); setSelectedPatient(null)
+    setWounds([]); setSelectedWound(null); setHistoryFilter("all")
     try {
-      const res = await axios.get(`${API}/wounds`)
+      const res = await axios.get(`${API}/patients`)
+      setPatients(res.data.patients)
+    } catch { setPatients([]) }
+  }
+
+  async function loadWoundsOfPatient(patient) {
+    setSelectedPatient(patient); setHistoryScreen("wounds")
+    setWounds([]); setSelectedWound(null)
+    try {
+      const res = await axios.get(`${API}/patients/${patient.id}`)
       setWounds(res.data.wounds)
     } catch { setWounds([]) }
   }
@@ -291,7 +306,7 @@ export default function App() {
               border: "0.5px solid #ddd", background: "#fff", color: "#666" }}>
             Thống kê
           </button>
-          <button onClick={loadWounds}
+          <button onClick={loadPatients}
             style={{ padding: "7px 18px", borderRadius: 20, fontSize: 13, fontWeight: 500, cursor: "pointer",
               border: "0.5px solid " + (historyTab ? "#1D9E75" : "#ddd"),
               background: historyTab ? "#1D9E75" : "#fff",
@@ -422,39 +437,139 @@ export default function App() {
         {/* ── LỊCH SỬ ── */}
         {historyTab && (
           <div>
-            {wounds.length === 0 ? (
-              <div style={{ textAlign: "center", padding: 40, color: "#888", fontSize: 14 }}>Chưa có dữ liệu vết thương</div>
-            ) : wounds.map(w => (
-              <div key={w.id} style={{ background: "#fff", borderRadius: 14, border: "0.5px solid " + (w.status === "healed" ? "#1D9E75" : "#E5E3DC"), padding: 16, marginBottom: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 500 }}>{w.patient_name}</div>
-                    <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{w.wound_type} · {w.location}</div>
-                    <div style={{ fontSize: 11, color: "#bbb", marginTop: 3, fontFamily: "monospace" }}>ID: {w.patient_id}</div>
-                  </div>
-                  {w.status === "healed"
-                    ? <span style={{ fontSize: 12, background: "#E1F5EE", color: "#085041", padding: "3px 10px", borderRadius: 10 }}>✓ Đã lành</span>
-                    : <span style={{ fontSize: 12, background: "#FAEEDA", color: "#633806", padding: "3px 10px", borderRadius: 10 }}>Đang điều trị</span>}
-                </div>
-                <div style={{ marginTop: 10, fontSize: 13, color: "#555" }}>
-                  <span>Ngày bắt đầu: {w.created_date}</span>
-                  {w.status === "healed" ? (
-                    <div style={{ marginTop: 6, background: "#E1F5EE", borderRadius: 8, padding: "6px 12px", fontSize: 13, color: "#085041", fontWeight: 500 }}>
-                      🎉 Lành sau {w.actual_days} ngày điều trị
+            {/* Breadcrumb */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, marginBottom: 14, flexWrap: "wrap" }}>
+              <span
+                onClick={() => { setHistoryScreen("patients"); setSelectedPatient(null); setWounds([]); setSelectedWound(null) }}
+                style={{ color: historyScreen === "patients" ? "#333" : "#1D9E75", cursor: historyScreen === "patients" ? "default" : "pointer", fontWeight: historyScreen === "patients" ? 500 : 400 }}>
+                Lịch sử
+              </span>
+              {selectedPatient && (
+                <>
+                  <span style={{ color: "#bbb" }}>›</span>
+                  <span
+                    onClick={() => { setHistoryScreen("wounds"); setSelectedWound(null) }}
+                    style={{ color: historyScreen === "wounds" ? "#333" : "#1D9E75", cursor: historyScreen === "wounds" ? "default" : "pointer", fontWeight: historyScreen === "wounds" ? 500 : 400 }}>
+                    {selectedPatient.full_name}
+                  </span>
+                </>
+              )}
+              {selectedWound && (
+                <>
+                  <span style={{ color: "#bbb" }}>›</span>
+                  <span style={{ color: "#333", fontWeight: 500 }}>Các lần chăm sóc</span>
+                </>
+              )}
+            </div>
+
+            {/* Màn hình 1 — Danh sách bệnh nhân */}
+            {historyScreen === "patients" && (
+              <div>
+                {patients.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: 40, color: "#888", fontSize: 14 }}>Chưa có dữ liệu bệnh nhân</div>
+                ) : patients.map(p => (
+                  <div key={p.id} onClick={() => loadWoundsOfPatient(p)}
+                    style={{ background: "#fff", borderRadius: 14, border: "0.5px solid #E5E3DC", padding: 16, marginBottom: 10, cursor: "pointer" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 500 }}>{p.full_name}</div>
+                        <div style={{ fontSize: 12, color: "#888", marginTop: 3 }}>
+                          {p.age_group} · {p.diabetes ? "Đái tháo đường" : "Không ĐTĐ"}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>
+                          {p.total_wounds} vết thương
+                          {p.active_wounds > 0 && <span style={{ color: "#534AB7", marginLeft: 8 }}>· {p.active_wounds} đang điều trị</span>}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 18, color: "#ccc" }}>›</span>
                     </div>
-                  ) : (
-                    <span style={{ marginLeft: 16, color: "#534AB7", fontWeight: 500 }}>Đang theo dõi: {w.days_so_far} ngày</span>
-                  )}
-                </div>
-                <div style={{ marginTop: 10 }}>
-                  <button onClick={() => loadVisits(w)}
-                    style={{ padding: "6px 14px", borderRadius: 8, fontSize: 12, cursor: "pointer",
-                      border: "0.5px solid #1D9E75", background: "#E1F5EE", color: "#085041" }}>
-                    Xem chi tiết →
-                  </button>
-                </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+
+            {/* Màn hình 2 — Danh sách vết thương của bệnh nhân */}
+            {historyScreen === "wounds" && selectedPatient && !selectedWound && (
+              <div>
+                {/* Filter */}
+                <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                  {[["all","Tất cả"], ["today","Hôm nay"], ["7days","7 ngày qua"], ["30days","30 ngày qua"]].map(([val, label]) => (
+                    <button key={val} onClick={() => setHistoryFilter(val)}
+                      style={{ padding: "5px 12px", borderRadius: 16, fontSize: 12, cursor: "pointer",
+                        border: "0.5px solid " + (historyFilter === val ? "#1D9E75" : "#ddd"),
+                        background: historyFilter === val ? "#E1F5EE" : "#fff",
+                        color: historyFilter === val ? "#085041" : "#666",
+                        fontWeight: historyFilter === val ? 500 : 400 }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Danh sách vết thương đã lọc */}
+                {wounds.filter(w => {
+                  if (historyFilter === "all") return true
+                  const created = new Date(w.created_date)
+                  const now = new Date()
+                  if (historyFilter === "today") return w.created_date === new Date().toISOString().split("T")[0]
+                  if (historyFilter === "7days") return (now - created) / 86400000 <= 7
+                  if (historyFilter === "30days") return (now - created) / 86400000 <= 30
+                  return true
+                }).length === 0 ? (
+                  <div style={{ textAlign: "center", padding: 30, color: "#888", fontSize: 13 }}>Không có vết thương trong khoảng thời gian này</div>
+                ) : wounds.filter(w => {
+                  if (historyFilter === "all") return true
+                  const created = new Date(w.created_date)
+                  const now = new Date()
+                  if (historyFilter === "today") return w.created_date === new Date().toISOString().split("T")[0]
+                  if (historyFilter === "7days") return (now - created) / 86400000 <= 7
+                  if (historyFilter === "30days") return (now - created) / 86400000 <= 30
+                  return true
+                }).map(w => (
+                  <div key={w.id} onClick={() => { setSelectedWound(w); loadVisits(w) }}
+                    style={{ background: "#fff", borderRadius: 14, padding: 16, marginBottom: 10, cursor: "pointer",
+                      border: "0.5px solid " + (w.status === "healed" ? "#1D9E75" : "#E5E3DC") }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 500 }}>
+                          {WOUND_TYPES.find(x => x.value === w.wound_type)?.label || w.wound_type}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#888", marginTop: 3 }}>Bắt đầu: {w.created_date}</div>
+                        {w.status === "active" && (
+                          <div style={{ fontSize: 12, color: "#534AB7", marginTop: 2 }}>Đang theo dõi: {w.days_so_far} ngày</div>
+                        )}
+                        {w.status === "healed" && (
+                          <div style={{ fontSize: 12, color: "#085041", marginTop: 2 }}>🎉 Lành sau {w.actual_days} ngày</div>
+                        )}
+                      </div>
+                      {w.status === "healed"
+                        ? <span style={{ fontSize: 12, background: "#E1F5EE", color: "#085041", padding: "3px 10px", borderRadius: 10 }}>✓ Đã lành</span>
+                        : <span style={{ fontSize: 12, background: "#FAEEDA", color: "#633806", padding: "3px 10px", borderRadius: 10 }}>Đang điều trị</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Màn hình 3 — Các lần chăm sóc */}
+            {historyScreen === "wounds" && selectedWound && (
+              <div>
+                {visits.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: 30, color: "#888", fontSize: 13 }}>Đang tải...</div>
+                ) : visits.map((v, i) => (
+                  <div key={v.id} style={{ background: "#fff", borderRadius: 10, padding: "12px 14px", marginBottom: 8, borderLeft: "3px solid " + (i === visits.length - 1 ? "#1D9E75" : "#E5E3DC") }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: i === visits.length - 1 ? "#085041" : "#333" }}>
+                      {v.visit_date}
+                      {i === visits.length - 1 && <span style={{ fontSize: 11, background: "#E1F5EE", color: "#085041", padding: "1px 8px", borderRadius: 6, marginLeft: 6 }}>Gần nhất</span>}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#666", marginTop: 3 }}>Kích thước: {v.length_cm} × {v.width_cm} × {v.depth_cm} cm</div>
+                    <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>Thay băng: {v.dressing_per_week}x/tuần · {v.nurse_type === "specialist" ? "Điều dưỡng chuyên khoa" : "Điều dưỡng đa khoa"}</div>
+                    {v.predicted_days && (
+                      <div style={{ marginTop: 6, fontSize: 12, color: "#534AB7", fontWeight: 500 }}>Dự báo: {v.predicted_days} ngày</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
