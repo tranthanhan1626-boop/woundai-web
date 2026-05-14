@@ -350,8 +350,20 @@ export default function App() {
                     Tuổi: {foundPatient.age_group} · Đái tháo đường: {foundPatient.diabetes ? "Có" : "Không"}
                   </div>
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: "#555", marginBottom: 8, marginLeft: 4 }}>
-                  Chọn vết thương đang điều trị để thêm lần khám mới:
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: "#555" }}>
+                    Chọn vết thương để thêm lần khám:
+                  </div>
+                  <button onClick={() => {
+                    setExistingPatient(foundPatient)
+                    setFindMode(false)
+                    setTab("form")
+                    setResult(null)
+                  }}
+                    style={{ padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: "pointer",
+                      border: "0.5px solid #1D9E75", background: "#E1F5EE", color: "#085041" }}>
+                    + Thêm vết thương mới
+                  </button>
                 </div>
                 {foundWounds.length === 0 ? (
                   <div style={{ textAlign: "center", padding: 24, color: "#888", fontSize: 13 }}>Chưa có vết thương nào</div>
@@ -578,47 +590,19 @@ export default function App() {
         {/* ── NHẬP CA MỚI ── */}
         {!findMode && !historyTab && tab === "form" && (
           <div>
-            <Section title="Thông tin bệnh nhân">
-              {/* Tìm bệnh nhân đã có */}
-              <Field label="Bệnh nhân đã có trong hệ thống? Nhập ID để tìm">
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input value={form.existingPatientId || ""}
-                    onChange={e => set("existingPatientId", e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && handleFindExisting()}
-                    placeholder="Dán ID bệnh nhân vào đây (nếu có)..."
-                    style={{ ...inputStyle, flex: 1 }} />
-                  <button onClick={handleFindExisting} disabled={findExistingLoading}
-                    style={{ padding: "9px 14px", borderRadius: 8, fontSize: 13, fontWeight: 500,
-                      border: "none", background: findExistingLoading ? "#9FE1CB" : "#1D9E75",
-                      color: "#fff", cursor: "pointer", whiteSpace: "nowrap" }}>
-                    {findExistingLoading ? "..." : "Tìm"}
-                  </button>
-                </div>
-                {findExistingError && (
-                  <div style={{ marginTop: 6, fontSize: 12, color: "#791F1F", background: "#FCEBEB", borderRadius: 8, padding: "6px 10px" }}>
-                    {findExistingError}
-                  </div>
-                )}
-              </Field>
-
-              {/* Hiển thị bệnh nhân tìm thấy */}
-              {existingPatient && (
-                <div style={{ background: "#E1F5EE", borderRadius: 10, padding: "10px 14px", marginBottom: 12, border: "0.5px solid #1D9E75" }}>
-                  <div style={{ fontSize: 12, color: "#0F6E56", fontWeight: 500, marginBottom: 2 }}>✅ Đã tìm thấy — sẽ thêm vết thương mới cho:</div>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>{existingPatient.full_name}</div>
-                  <div style={{ fontSize: 12, color: "#555", marginTop: 2 }}>
-                    Tuổi: {existingPatient.age_group} · Đái tháo đường: {existingPatient.diabetes ? "Có" : "Không"}
-                  </div>
-                  <button onClick={() => { setExistingPatient(null); set("existingPatientId", "") }}
-                    style={{ marginTop: 6, fontSize: 12, color: "#0F6E56", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
-                    ✕ Huỷ — nhập bệnh nhân mới
-                  </button>
-                </div>
-              )}
-
-              {/* Form bệnh nhân mới — ẩn nếu đã tìm thấy bệnh nhân cũ */}
-              {!existingPatient && (
-                <>
+            {existingPatient && (
+              <div style={{ background: "#E1F5EE", borderRadius: 14, border: "0.5px solid #1D9E75", padding: 14, marginBottom: 12 }}>
+                <div style={{ fontSize: 12, color: "#0F6E56", fontWeight: 500, marginBottom: 2 }}>✅ Thêm vết thương mới cho:</div>
+                <div style={{ fontSize: 15, fontWeight: 500 }}>{existingPatient.full_name}</div>
+                <div style={{ fontSize: 12, color: "#555", marginTop: 2 }}>Tuổi: {existingPatient.age_group} · Đái tháo đường: {existingPatient.diabetes ? "Có" : "Không"}</div>
+                <button onClick={() => setExistingPatient(null)}
+                  style={{ marginTop: 6, fontSize: 12, color: "#0F6E56", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                  ✕ Huỷ — nhập bệnh nhân mới
+                </button>
+              </div>
+            )}
+            {!existingPatient && <Section title="Thông tin bệnh nhân">
+              <>
                   <Field label="Họ và tên bệnh nhân">
                     <input value={form.patient_name} onChange={e => set("patient_name", e.target.value)}
                       placeholder="Nguyễn Văn A" style={inputStyle} />
@@ -634,9 +618,7 @@ export default function App() {
                     </Field>
                   </Row2>
                 </>
-              )}
-            </Section>
-          
+            </Section>}
 
             <Section title="Thông tin vết thương">
               <Field label="Loại vết thương">
