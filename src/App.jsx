@@ -294,7 +294,7 @@ export default function App() {
               {t === "form" ? "Nhập ca mới" : "Kết quả dự báo"}
             </button>
           ))}
-          <button onClick={() => { setHistoryTab(false); setFindMode(true); setAddVisitMode(false); setTab("form") }}
+          <button onClick={() => { setHistoryTab(false); setFindMode(true); setAddVisitMode(false); setTab("form"); setResult(null) }}
             style={{ padding: "7px 18px", borderRadius: 20, fontSize: 13, fontWeight: 500, cursor: "pointer",
               border: "0.5px solid " + (findMode ? "#534AB7" : "#ddd"),
               background: findMode ? "#534AB7" : "#fff",
@@ -306,7 +306,7 @@ export default function App() {
               border: "0.5px solid #ddd", background: "#fff", color: "#666" }}>
             Thống kê
           </button>
-          <button onClick={loadPatients}
+          <button onClick={() => { setResult(null); loadPatients() }}
             style={{ padding: "7px 18px", borderRadius: 20, fontSize: 13, fontWeight: 500, cursor: "pointer",
               border: "0.5px solid " + (historyTab ? "#1D9E75" : "#ddd"),
               background: historyTab ? "#1D9E75" : "#fff",
